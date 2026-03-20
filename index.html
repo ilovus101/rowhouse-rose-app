@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rowhouse & Rose | Baltimore Luxury Rentals</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --navy: #002147;
+            --rose-pale: #F8D7DA;
+            --rose-dust: #E0AC9D;
+            --white: #ffffff;
+            --soft-gray: #f9f9f9;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--white);
+            color: var(--navy);
+            overflow-x: hidden;
+        }
+
+        #app-container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .brand-header {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.8rem;
+            text-align: center;
+            margin-bottom: 30px;
+            color: var(--navy);
+            border-bottom: 2px solid var(--rose-pale);
+            padding-bottom: 10px;
+        }
+
+        /* Property Card Grid */
+        #listing-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 25px;
+        }
+
+        .property-card {
+            background: var(--white);
+            border-radius: 16px;
+            border: 1px solid var(--rose-pale);
+            overflow: hidden;
+            box-shadow: 0 8px 20px rgba(0, 33, 71, 0.05);
+            transition: transform 0.3s ease;
+        }
+
+        .image-box {
+            height: 230px;
+            background-size: cover;
+            background-position: center;
+            background-color: var(--soft-gray);
+            position: relative;
+        }
+
+        .badge {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: var(--navy);
+            color: var(--white);
+            padding: 5px 12px;
+            border-radius: 50px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .card-content {
+            padding: 20px;
+        }
+
+        .price {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .address {
+            font-size: 0.95rem;
+            color: #444;
+            margin-bottom: 20px;
+            line-height: 1.4;
+        }
+
+        .btn-request {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            background: var(--navy);
+            color: var(--white);
+            text-align: center;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 1rem;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .btn-request:active {
+            background: var(--rose-dust);
+        }
+
+        /* Loading & Error States */
+        #status-msg {
+            text-align: center;
+            padding: 60px 20px;
+            font-style: italic;
+            color: var(--rose-dust);
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--rose-pale);
+            border-top: 4px solid var(--navy);
+            border-radius: 50%;
+            margin: 0 auto 15px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <div class="brand-header">Rowhouse & Rose</div>
+
+    <div id="status-msg">
+        <div class="spinner"></div>
+        <p>Analyzing Baltimore market data...</p>
+    </div>
+
+    <div id="listing-grid" class="hidden"></div>
+</div>
+
+<script>
+    /**
+     * CORE APP CONFIGURATION
+     */
+    const ZAPIER_URL = 'https://hooks.zapier.com/hooks/catch/26852660/up8c52b/';
+    const JOTFORM_ID = 'INSERT_YOUR_15_DIGIT_ID_HERE'; 
+
+    async function fetchBaltimoreListings() {
+        const grid = document.getElementById('listing-grid');
+        const status = document.getElementById('status-msg');
+
+        try {
+            // Call Zapier to trigger RentCast/SerpApi sequence
+            const response = await fetch(ZAPIER_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: "app_load_request", timestamp: Date.now() })
+            });
+
+            const data = await response.json();
+
+            // Check if properties exist in the Zapier response
+            if (data.properties && data.properties.length > 0) {
+                renderProperties(data.properties);
+                status.classList.add('hidden');
+                grid.classList.remove('hidden');
+            } else {
+                status.innerHTML = "<p>New Baltimore gems coming soon. Stay tuned!</p>";
+            }
+        } catch (error) {
+            console.error("Connection Error:", error);
+            status.innerHTML = "<p>Connection failed. Please swipe down to refresh.</p>";
+        }
+    }
+
+    function renderProperties(list) {
+        const grid = document.getElementById('listing-grid');
+        
+        list.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'property-card';
+            
+            // Fallback image if SerpApi doesn't find a match
+            const photo = item.image_url || 'https://images.unsplash.com/photo-1593011311001-382a392233f2?auto=format&fit=crop&w=800';
+
+            card.innerHTML = `
+                <div class="image-box" style="background-image: url('${photo}')">
+                    <div class="badge">${item.neighborhood || 'Baltimore'}</div>
+                </div>
+                <div class="card-content">
+                    <div class="price">$${item.price}/mo</div>
+                    <div class="address">${item.address}</div>
+                    <button class="btn-request" onclick="handleTourRequest('${item.address}')">
+                        Request Private Tour
+                    </button>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+    }
+
+    function handleTourRequest(address) {
+        // Redirect the parent Jotform container to your specific Tour Form
+        const targetUrl = `https://form.jotform.com/${JOTFORM_ID}?address=${encodeURIComponent(address)}`;
+        
+        // This break-out ensures the form opens properly inside the app shell
+        if (window.parent) {
+            window.parent.location.href = targetUrl;
+        } else {
+            window.location.href = targetUrl;
+        }
+    }
+
+    // Run the app engine on page load
+    fetchBaltimoreListings();
+</script>
+
+</body>
+</html>
